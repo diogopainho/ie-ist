@@ -1,0 +1,15 @@
+<?xml version= '1.0' encoding= 'UTF-8' ?>
+<wsdl:definitions
+     name="DistanceExternalService"
+     targetNamespace="http://distanceservice/"
+     xmlns:plnk="http://docs.oasis-open.org/wsbpel/2.0/plnktype"
+     xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+     xmlns:tns="http://distanceservice/"
+     xmlns:bpws="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    >
+    <plnk:partnerLinkType name="DistanceService">
+        <plnk:role name="DistanceExternalService" portType="tns:DistanceExternalService"/>
+    </plnk:partnerLinkType>
+    <wsdl:import namespace="http://distanceservice/" location="http://soabpm-vm.site:7001/DistanceService-DistanceService-context-root/DistanceExternalServiceSoap12HttpPort?wsdl"/>
+</wsdl:definitions>

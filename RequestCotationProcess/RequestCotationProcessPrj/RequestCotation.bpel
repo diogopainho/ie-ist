@@ -1,0 +1,158 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<!--
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  Oracle JDeveloper BPEL Designer 
+  
+  Created: Tue Mar 15 10:26:06 WET 2016
+  Author:  oracle
+  Type: BPEL 2.0 Process
+  Purpose: Synchronous BPEL Process
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-->
+<process name="RequestCotation"
+               targetNamespace="http://xmlns.oracle.com/RequestCotationProcess/RequestCotationProcessPrj/RequestCotation"
+               xmlns="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+               xmlns:client="http://xmlns.oracle.com/RequestCotationProcess/RequestCotationProcessPrj/RequestCotation"
+               xmlns:ora="http://schemas.oracle.com/xpath/extension"
+               xmlns:bpelx="http://schemas.oracle.com/bpel/extension"
+         xmlns:bpel="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+         xmlns:ns1="http://distanceservice/" xmlns:ns2="http://transporterzws/"
+         xmlns:ns3="http://transporteraws/"
+         xmlns:xp20="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.Xpath20"
+         xmlns:bpws="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:oraext="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.ExtFunc"
+         xmlns:dvm="http://www.oracle.com/XSL/Transform/java/oracle.tip.dvm.LookupValue"
+         xmlns:hwf="http://xmlns.oracle.com/bpel/workflow/xpath"
+         xmlns:ids="http://xmlns.oracle.com/bpel/services/IdentityService/xpath"
+         xmlns:bpm="http://xmlns.oracle.com/bpmn20/extensions"
+         xmlns:xdk="http://schemas.oracle.com/bpel/extension/xpath/function/xdk"
+         xmlns:xref="http://www.oracle.com/XSL/Transform/java/oracle.tip.xref.xpath.XRefXPathFunctions"
+         xmlns:ldap="http://schemas.oracle.com/xpath/extension/ldap">
+
+    <import namespace="http://xmlns.oracle.com/RequestCotationProcess/RequestCotationProcessPrj/RequestCotation" location="RequestCotation.wsdl" importType="http://schemas.xmlsoap.org/wsdl/"/>
+    <!-- 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        PARTNERLINKS                                                      
+        List of services participating in this BPEL process               
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    --> 
+  <partnerLinks>
+    <!-- 
+      The 'client' role represents the requester of this service. It is 
+      used for callback. The location and correlation information associated
+      with the client role are automatically set using WS-Addressing.
+    -->
+    <partnerLink name="requestcotation_client" partnerLinkType="client:RequestCotation" myRole="RequestCotationProvider"/>
+    <partnerLink name="DistanceService" partnerLinkType="ns1:DistanceService"
+                 partnerRole="DistanceExternalService"/>
+    <partnerLink name="TransporterZService"
+                 partnerLinkType="ns2:TransporterZService"
+                 partnerRole="TransporterZService"/>
+    <partnerLink name="TransporterAService"
+                 partnerLinkType="ns3:TransporterAService"
+                 partnerRole="TransporterAService"/>
+  </partnerLinks>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      VARIABLES                                                        
+      List of messages and XML documents used within this BPEL process 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <variables>
+    <!-- Reference to the message passed as input during initiation -->
+    <variable name="inputVariable" messageType="client:RequestCotationRequestMessage"/>
+
+    <!-- Reference to the message that will be returned to the requester-->
+    <variable name="outputVariable" messageType="client:RequestCotationResponseMessage"/>
+    <variable name="InvokeDirectionWS_getDistance_InputVariable"
+              messageType="ns1:getDistance"/>
+    <variable name="InvokeDirectionWS_getDistance_OutputVariable"
+              messageType="ns1:getDistanceResponse"/>
+    <variable name="InvokeTransporterA_getCotationTransporterA_InputVariable"
+              messageType="ns3:getCotationTransporterA"/>
+    <variable name="InvokeTransporterA_getCotationTransporterA_OutputVariable"
+              messageType="ns3:getCotationTransporterAResponse"/>
+    <variable name="InvokeTransporterZ_getCotationTransporterZ_InputVariable"
+              messageType="ns2:getCotationTransporterZ"/>
+    <variable name="InvokeTransporterZ_getCotationTransporterZ_OutputVariable"
+              messageType="ns2:getCotationTransporterZResponse"/>
+  </variables>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     ORCHESTRATION LOGIC                                               
+     Set of activities coordinating the flow of messages across the    
+     services integrated within this business process                  
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <sequence name="main">
+
+    <!-- Receive input from requestor. (Note: This maps to operation defined in RequestCotation.wsdl) -->
+    <receive name="receiveInput" partnerLink="requestcotation_client" portType="client:RequestCotation" operation="process" variable="inputVariable" createInstance="yes"/>
+    <assign name="AssignCities">
+      <copy>
+        <from>$inputVariable.payload/client:input</from>
+        <to>$InvokeDirectionWS_getDistance_InputVariable.parameters/arg0</to>
+      </copy>
+      <copy>
+        <from>$inputVariable.payload/client:input</from>
+        <to>$InvokeDirectionWS_getDistance_InputVariable.parameters/arg1</to>
+      </copy>
+    </assign>
+    <invoke name="InvokeDirectionWS"
+            partnerLink="DistanceService"
+            portType="ns1:DistanceExternalService" operation="getDistance"
+            inputVariable="InvokeDirectionWS_getDistance_InputVariable"
+            outputVariable="InvokeDirectionWS_getDistance_OutputVariable"
+            bpelx:invokeAsDetail="no"/>
+    <assign name="AssignDistance">
+      <copy>
+        <from>$InvokeDirectionWS_getDistance_OutputVariable.parameters/return</from>
+        <to>$InvokeTransporterA_getCotationTransporterA_InputVariable.parameters/arg0</to>
+      </copy>
+      <copy>
+        <from>$InvokeDirectionWS_getDistance_OutputVariable.parameters/return</from>
+        <to>$InvokeTransporterZ_getCotationTransporterZ_InputVariable.parameters/arg0</to>
+      </copy>
+    </assign>
+    <flow name="Flow1">
+      <sequence name="Sequence">
+        <invoke name="InvokeTransporterA"
+                partnerLink="TransporterAService"
+                portType="ns3:TransporterAService"
+                operation="getCotationTransporterA"
+                inputVariable="InvokeTransporterA_getCotationTransporterA_InputVariable"
+                outputVariable="InvokeTransporterA_getCotationTransporterA_OutputVariable"
+                bpelx:invokeAsDetail="no"/>
+      </sequence>
+      <sequence name="Sequence1">
+        <invoke name="InvokeTransporterZ" bpelx:invokeAsDetail="no"
+                partnerLink="TransporterZService"
+                portType="ns2:TransporterZService"
+                operation="getCotationTransporterZ"
+                inputVariable="InvokeTransporterZ_getCotationTransporterZ_InputVariable"
+                outputVariable="InvokeTransporterZ_getCotationTransporterZ_OutputVariable"/>
+      </sequence>
+    </flow>
+    <if name="ChooseCotation">
+      <condition>$InvokeTransporterA_getCotationTransporterA_OutputVariable.parameters/return &lt;= $InvokeTransporterZ_getCotationTransporterZ_OutputVariable.parameters/return</condition>
+      <assign name="AssignCotationA">
+        <copy>
+          <from>$InvokeTransporterA_getCotationTransporterA_OutputVariable.parameters/return</from>
+          <to>$outputVariable.payload/client:result</to>
+        </copy>
+      </assign>
+      <else>
+        <assign name="AssignCotationZ">
+          <copy>
+            <from>$InvokeTransporterZ_getCotationTransporterZ_OutputVariable.parameters/return</from>
+            <to>$outputVariable.payload/client:result</to>
+          </copy>
+        </assign>
+      </else>
+    </if>
+    <!-- Generate reply to synchronous request -->
+    <reply name="replyOutput" partnerLink="requestcotation_client" portType="client:RequestCotation" operation="process" variable="outputVariable"/>
+  </sequence>
+</process>
